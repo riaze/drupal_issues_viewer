@@ -1,6 +1,7 @@
+import time
 import unittest
 
-from drupal_issues_viewer.client import normalize_issue, summarize
+from drupal_issues_viewer.client import TTLCache, normalize_issue, summarize
 from drupal_issues_viewer.mappings import ISSUE_STATUS, label
 from drupal_issues_viewer.render import render_frontend
 from drupal_issues_viewer.server import parse_page
@@ -107,6 +108,29 @@ class RenderTests(unittest.TestCase):
         self.assertIn('href="/?page=3&amp;status=8&amp;priority=400"', html)
         self.assertIn('<option value="8" selected>needs review</option>', html)
         self.assertIn('<option value="400" selected>critical</option>', html)
+
+
+class TTLCacheTests(unittest.TestCase):
+    def test_cache_hit_and_miss(self):
+        cache = TTLCache(ttl=10)
+        key = (1, None, None)
+        self.assertIsNone(cache.get(key))
+        cache.set(key, {"count": 42})
+        self.assertEqual(cache.get(key), {"count": 42})
+
+    def test_cache_expires_after_ttl(self):
+        cache = TTLCache(ttl=0)  # expires immediately
+        key = (1, "8", "400")
+        cache.set(key, {"count": 10})
+        time.sleep(0.01)
+        self.assertIsNone(cache.get(key))
+
+    def test_cache_clear(self):
+        cache = TTLCache(ttl=60)
+        key = (1, None, None)
+        cache.set(key, {"count": 5})
+        cache.clear()
+        self.assertIsNone(cache.get(key))
 
 
 if __name__ == "__main__":

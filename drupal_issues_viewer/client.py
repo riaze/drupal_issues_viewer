@@ -5,6 +5,8 @@ from __future__ import annotations
 import html
 import logging
 import re
+import threading
+import time
 from typing import Any
 
 import requests
@@ -12,6 +14,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 from drupal_issues_viewer.config import (
+    CACHE_TTL,
     DRUPAL_ISSUES_URL,
     REQUEST_TIMEOUT,
     SUMMARY_LIMIT,
@@ -45,6 +48,42 @@ def create_session() -> requests.Session:
 
 
 _session = create_session()
+
+
+class TTLCache:
+    """Thread-safe in-memory cache with time-to-live expiration."""
+
+    def __init__(self, ttl: int = CACHE_TTL) -> None:
+        self.ttl = ttl
+        self._cache: dict[tuple[int, str | None, str | None], tuple[float, dict[str, Any]]] = {}
+        self._lock = threading.Lock()
+
+    def get(self, key: tuple[int, str | None, str | None]) -> dict[str, Any] | None:
+        with self._lock:
+            entry = self._cache.get(key)
+            if entry is None:
+                return None
+            timestamp, data = entry
+            if time.time() - timestamp > self.ttl:
+                del self._cache[key]
+                return None
+            return data
+
+    def set(self, key: tuple[int, str | None, str | None], data: dict[str, Any]) -> None:
+        with self._lock:
+            self._cache[key] = (time.time(), data)
+
+    def clear(self) -> None:
+        with self._lock:
+            self._cache.clear()
+
+
+_cache = TTLCache()
+
+
+def clear_cache() -> None:
+    """Clear in-memory cache entries."""
+    _cache.clear()
 
 
 def summarize(body: object, limit: int = SUMMARY_LIMIT) -> str:
@@ -81,8 +120,16 @@ def fetch_issues(
     status: str | None = None,
     priority: str | None = None,
     session: requests.Session | None = None,
+    use_cache: bool = True,
 ) -> dict[str, Any]:
     """GET Drupal issues for a single page with optional status and priority filters."""
+    cache_key = (page, status, priority)
+    if use_cache:
+        cached = _cache.get(cache_key)
+        if cached is not None:
+            logger.debug("Cache hit for key=%s", cache_key)
+            return cached
+
     http = session or _session
     logger.info("Fetching Drupal issues page=%s status=%s priority=%s", page, status, priority)
     drupal_page = max(page - 1, 0)
@@ -101,7 +148,7 @@ def fetch_issues(
     payload = response.json()
 
     items = [normalize_issue(node) for node in payload.get("list") or []]
-    return {
+    result = {
         "page": page,
         "count": len(items),
         "has_next": bool(payload.get("next")),
@@ -109,3 +156,6 @@ def fetch_issues(
         "priority": priority or "",
         "items": items,
     }
+    if use_cache:
+        _cache.set(cache_key, result)
+    return result

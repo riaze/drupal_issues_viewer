@@ -9,6 +9,7 @@ It calls the Drupal.org REST endpoint (`/api-d7/node.json`), normalizes each iss
 - HTML frontend at `/` with previous/next paging
 - JSON REST endpoint at `/api/issues`
 - Health check at `/health`
+- In-memory TTL caching (default: 60s, configurable via `DRUPAL_CACHE_TTL`)
 - Status and priority labels mapped from Drupal field IDs
 - Short HTML-stripped summaries for each issue
 
