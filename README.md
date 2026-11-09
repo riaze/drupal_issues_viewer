@@ -53,19 +53,25 @@ python -m unittest discover -s tests -v
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/` | HTML list of issues. Query: `?page=0` |
-| `GET` | `/api/issues` | JSON list of issues. Query: `?page=0` |
+| `GET` | `/` | HTML list of issues. Query: `?page=1&status=8&priority=400` |
+| `GET` | `/api/issues` | JSON list of issues. Query: `?page=1&status=8&priority=400` |
 | `GET` | `/health` | Liveness probe |
+
+### Filters
+
+- `page`: Page number (starts at `1`)
+- `status`: Drupal issue status ID (e.g. `8` for *needs review*, `13` for *needs work*, `1` for *active*)
+- `priority`: Drupal issue priority ID (e.g. `400` for *critical*, `300` for *major*, `200` for *normal*)
 
 ### JSON example
 
 ```http
-GET /api/issues?page=0
+GET /api/issues?page=1
 ```
 
 ```json
 {
-  "page": 0,
+  "page": 1,
   "count": 50,
   "has_next": true,
   "items": [

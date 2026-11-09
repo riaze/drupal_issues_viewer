@@ -76,13 +76,25 @@ def normalize_issue(node: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def fetch_issues(page: int = 0, session: requests.Session | None = None) -> dict[str, Any]:
-    """GET Drupal issues for a single page."""
+def fetch_issues(
+    page: int = 1,
+    status: str | None = None,
+    priority: str | None = None,
+    session: requests.Session | None = None,
+) -> dict[str, Any]:
+    """GET Drupal issues for a single page with optional status and priority filters."""
     http = session or _session
-    logger.info("Fetching Drupal issues page=%s", page)
+    logger.info("Fetching Drupal issues page=%s status=%s priority=%s", page, status, priority)
+    drupal_page = max(page - 1, 0)
+    params: dict[str, Any] = {"type": "project_issue", "page": drupal_page}
+    if status:
+        params["field_issue_status"] = status
+    if priority:
+        params["field_issue_priority"] = priority
+
     response = http.get(
         DRUPAL_ISSUES_URL,
-        params={"type": "project_issue", "page": page},
+        params=params,
         timeout=REQUEST_TIMEOUT,
     )
     response.raise_for_status()
@@ -93,5 +105,7 @@ def fetch_issues(page: int = 0, session: requests.Session | None = None) -> dict
         "page": page,
         "count": len(items),
         "has_next": bool(payload.get("next")),
+        "status": status or "",
+        "priority": priority or "",
         "items": items,
     }

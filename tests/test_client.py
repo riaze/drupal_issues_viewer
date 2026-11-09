@@ -59,14 +59,14 @@ class NormalizeTests(unittest.TestCase):
 
 
 class ParsePageTests(unittest.TestCase):
-    def test_default_is_zero(self):
-        self.assertEqual(parse_page({}), 0)
+    def test_default_is_one(self):
+        self.assertEqual(parse_page({}), 1)
 
     def test_negative_clamped(self):
-        self.assertEqual(parse_page({"page": ["-3"]}), 0)
+        self.assertEqual(parse_page({"page": ["-3"]}), 1)
 
-    def test_invalid_is_zero(self):
-        self.assertEqual(parse_page({"page": ["abc"]}), 0)
+    def test_invalid_is_one(self):
+        self.assertEqual(parse_page({"page": ["abc"]}), 1)
 
 
 class RenderTests(unittest.TestCase):
@@ -91,6 +91,22 @@ class RenderTests(unittest.TestCase):
         self.assertEqual(html.count('href="/?page=1"'), 2)
         self.assertEqual(html.count('href="/?page=3"'), 2)
         self.assertIn("Footer pagination", html)
+
+    def test_filter_preserved_in_pagination_links(self):
+        html = render_frontend(
+            {
+                "page": 2,
+                "count": 1,
+                "has_next": True,
+                "status": "8",
+                "priority": "400",
+                "items": [],
+            }
+        )
+        self.assertIn('href="/?page=1&amp;status=8&amp;priority=400"', html)
+        self.assertIn('href="/?page=3&amp;status=8&amp;priority=400"', html)
+        self.assertIn('<option value="8" selected>needs review</option>', html)
+        self.assertIn('<option value="400" selected>critical</option>', html)
 
 
 if __name__ == "__main__":

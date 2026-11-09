@@ -23,15 +23,18 @@ _SECURITY_HEADERS = (
 
 def parse_page(query: dict[str, list[str]]) -> int:
     try:
-        return max(int(query.get("page", ["0"])[0]), 0)
+        return max(int(query.get("page", ["1"])[0]), 1)
     except (ValueError, TypeError, IndexError):
-        return 0
+        return 1
 
 
 class DrupalIssuesHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
-        page = parse_page(parse_qs(parsed.query))
+        qs = parse_qs(parsed.query)
+        page = parse_page(qs)
+        status = qs.get("status", [None])[0] or None
+        priority = qs.get("priority", [None])[0] or None
 
         routes = {
             "/": self._handle_frontend,
@@ -43,16 +46,17 @@ class DrupalIssuesHandler(BaseHTTPRequestHandler):
         if handler is None:
             self._send_json(404, {"error": "Endpoint not found"})
             return
-        handler(page)
+        handler(page, status, priority)
 
-    def _handle_health(self, _page: int) -> None:
+    def _handle_health(self, _page: int, _status: str | None = None, _priority: str | None = None) -> None:
         self._send_json(200, {"status": "ok"})
 
-    def _handle_frontend(self, page: int) -> None:
+    def _handle_frontend(self, page: int, status: str | None = None, priority: str | None = None) -> None:
         try:
-            body = render_frontend(fetch_issues(page)).encode("utf-8")
+            data = fetch_issues(page, status=status, priority=priority)
+            body = render_frontend(data).encode("utf-8")
         except Exception:
-            logger.exception("Failed to render issues page=%s", page)
+            logger.exception("Failed to render issues page=%s status=%s priority=%s", page, status, priority)
             self._send_json(502, {"error": "Failed to load issues"})
             return
         self.send_response(200)
@@ -62,11 +66,11 @@ class DrupalIssuesHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def _handle_issues_api(self, page: int) -> None:
+    def _handle_issues_api(self, page: int, status: str | None = None, priority: str | None = None) -> None:
         try:
-            self._send_json(200, fetch_issues(page))
+            self._send_json(200, fetch_issues(page, status=status, priority=priority))
         except Exception:
-            logger.exception("Failed to fetch issues page=%s", page)
+            logger.exception("Failed to fetch issues page=%s status=%s priority=%s", page, status, priority)
             self._send_json(502, {"error": "Failed to load issues"})
 
     def _send_json(self, status_code: int, data: dict[str, Any]) -> None:

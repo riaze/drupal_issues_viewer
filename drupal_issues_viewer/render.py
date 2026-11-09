@@ -6,8 +6,10 @@ import html
 import re
 from string import Template
 from typing import Any
+from urllib.parse import urlencode
 
 from drupal_issues_viewer.config import TEMPLATE_PATH
+from drupal_issues_viewer.mappings import ISSUE_PRIORITY, ISSUE_STATUS
 
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
 
@@ -40,9 +42,30 @@ def _nav_link(label: str, href: str | None) -> str:
     return f'<span class="btn" aria-disabled="true">{safe_label}</span>'
 
 
+def _options(mapping: dict[str, str], selected: str | None) -> str:
+    parts = ['<option value="">All</option>']
+    for key, val in mapping.items():
+        is_sel = ' selected' if selected and str(selected) == str(key) else ''
+        parts.append(f'<option value="{html.escape(key)}"{is_sel}>{html.escape(val)}</option>')
+    return "\n".join(parts)
+
+
 def render_frontend(data: dict[str, Any], template_path=TEMPLATE_PATH) -> str:
     template = Template(template_path.read_text(encoding="utf-8"))
     page = data["page"]
+    status = data.get("status") or ""
+    priority = data.get("priority") or ""
+
+    def make_url(p: int) -> str:
+        q: dict[str, Any] = {"page": p}
+        if status:
+            q["status"] = status
+        if priority:
+            q["priority"] = priority
+        return f"/?{urlencode(q)}"
+
+    api_query = urlencode({k: v for k, v in [("page", page), ("status", status), ("priority", priority)] if v})
+
     cards = []
     for item in data["items"]:
         cards.append(
@@ -61,7 +84,10 @@ def render_frontend(data: dict[str, Any], template_path=TEMPLATE_PATH) -> str:
     return template.safe_substitute(
         page=page,
         count=data["count"],
+        status_options=_options(ISSUE_STATUS, status),
+        priority_options=_options(ISSUE_PRIORITY, priority),
+        api_query=api_query,
         items_html="".join(cards) or "<p>No issues found.</p>",
-        prev_link=_nav_link("Previous", f"/?page={page - 1}" if page > 0 else None),
-        next_link=_nav_link("Next", f"/?page={page + 1}" if data["has_next"] else None),
+        prev_link=_nav_link("Previous", make_url(page - 1) if page > 1 else None),
+        next_link=_nav_link("Next", make_url(page + 1) if data["has_next"] else None),
     )

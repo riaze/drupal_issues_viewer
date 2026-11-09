@@ -180,8 +180,53 @@
     }
     .api-link a { color: var(--accent); text-decoration: none; font-weight: 600; }
     .api-link a:hover { text-decoration: underline; }
+    .filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.75rem;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 0.75rem 1.15rem;
+      margin-top: 0.75rem;
+      box-shadow: var(--shadow);
+    }
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.85rem;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    .filter-group select {
+      padding: 0.35rem 0.6rem;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--ink);
+      font-size: 0.85rem;
+      outline: none;
+    }
+    .filter-group select:focus {
+      border-color: var(--accent);
+    }
+    .btn-submit {
+      padding: 0.35rem 0.8rem;
+      background: var(--accent);
+      color: var(--accent-ink);
+      border: none;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-submit:hover {
+      filter: brightness(1.05);
+    }
     @media (max-width: 700px) {
-      .topbar, .footer-bar { align-items: stretch; }
+      .topbar, .footer-bar, .filter-bar { align-items: stretch; }
       .pager { width: 100%; justify-content: space-between; }
       a.btn, span.btn { flex: 1; min-width: 0; }
     }
@@ -203,11 +248,28 @@
         $next_link
       </nav>
     </header>
+    <form class="filter-bar" method="GET" action="/">
+      <div class="filter-group">
+        <label for="status">Status:</label>
+        <select name="status" id="status">
+          $status_options
+        </select>
+      </div>
+      <div class="filter-group">
+        <label for="priority">Priority:</label>
+        <select name="priority" id="priority">
+          $priority_options
+        </select>
+      </div>
+      <input type="hidden" name="page" value="1">
+      <button type="submit" class="btn-submit">Filter</button>
+      <a href="/" class="btn" style="padding: 0.35rem 0.6rem; min-width: auto; font-size: 0.82rem;">Reset</a>
+    </form>
     <main>
       $items_html
     </main>
     <footer class="footer-bar">
-      <p class="api-link">JSON API · <a href="/api/issues?page=$page">/api/issues?page=$page</a></p>
+      <p class="api-link">JSON API · <a href="/api/issues?$api_query">/api/issues?$api_query</a></p>
       <nav class="pager" aria-label="Footer pagination">
         $prev_link
         <span class="page-indicator">Page $page</span>
