@@ -9,7 +9,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from drupal_issues_viewer.client import fetch_issues
-from drupal_issues_viewer.export import issues_to_csv, issues_to_xls
+from drupal_issues_viewer.export import issues_to_csv
 from drupal_issues_viewer.render import render_frontend
 
 logger = logging.getLogger(__name__)
@@ -42,7 +42,6 @@ class DrupalIssuesHandler(BaseHTTPRequestHandler):
             "/": self._handle_frontend,
             "/index.html": self._handle_frontend,
             "/api/issues": self._handle_issues_api,
-            "/export/issues.xls": self._handle_export_xls,
             "/export/issues.csv": self._handle_export_csv,
             "/health": self._handle_health,
         }
@@ -51,29 +50,6 @@ class DrupalIssuesHandler(BaseHTTPRequestHandler):
             self._send_json(404, {"error": "Endpoint not found"})
             return
         handler(page, status, priority, query)
-
-    def _handle_export_xls(
-        self,
-        page: int,
-        status: str | None = None,
-        priority: str | None = None,
-        query: str | None = None,
-    ) -> None:
-        try:
-            data = fetch_issues(page, status=status, priority=priority, query=query)
-            body = issues_to_xls(data.get("items", []), page=page).encode("utf-8")
-        except Exception:
-            logger.exception("Failed to export XLS page=%s status=%s priority=%s query=%s", page, status, priority, query)
-            self._send_json(502, {"error": "Failed to export issues to XLS"})
-            return
-        filename = f"drupal_issues_page_{page}.xls"
-        self.send_response(200)
-        self.send_header("Content-Type", "application/vnd.ms-excel; charset=utf-8")
-        self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
-        self.send_header("Content-Length", str(len(body)))
-        self._write_security_headers()
-        self.end_headers()
-        self.wfile.write(body)
 
     def _handle_export_csv(
         self,
@@ -99,28 +75,6 @@ class DrupalIssuesHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def _handle_export_xls(
-        self,
-        page: int,
-        status: str | None = None,
-        priority: str | None = None,
-        query: str | None = None,
-    ) -> None:
-        try:
-            data = fetch_issues(page, status=status, priority=priority, query=query)
-            body = issues_to_xls(data.get("items", []), page=page).encode("utf-8")
-        except Exception:
-            logger.exception("Failed to export XLS page=%s status=%s priority=%s query=%s", page, status, priority, query)
-            self._send_json(502, {"error": "Failed to export issues to XLS"})
-            return
-        filename = f"drupal_issues_page_{page}.xls"
-        self.send_response(200)
-        self.send_header("Content-Type", "application/vnd.ms-excel; charset=utf-8")
-        self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
-        self.send_header("Content-Length", str(len(body)))
-        self._write_security_headers()
-        self.end_headers()
-        self.wfile.write(body)
 
     def _handle_health(
         self,

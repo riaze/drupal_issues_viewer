@@ -4,7 +4,7 @@ import time
 import unittest
 
 from drupal_issues_viewer.client import TTLCache, normalize_issue, summarize
-from drupal_issues_viewer.export import issues_to_csv, issues_to_xls
+from drupal_issues_viewer.export import issues_to_csv
 from drupal_issues_viewer.mappings import ISSUE_STATUS, label
 from drupal_issues_viewer.render import render_frontend
 from drupal_issues_viewer.server import parse_page
@@ -134,34 +134,6 @@ class TTLCacheTests(unittest.TestCase):
         cache.set(key, {"count": 5})
         cache.clear()
         self.assertIsNone(cache.get(key))
-
-
-class ExportXlsTests(unittest.TestCase):
-    def test_generates_valid_xml(self):
-        items = [
-            {
-                "id": "1001",
-                "title": "Fix login crash",
-                "status": "needs review",
-                "priority": "critical",
-                "project_id": "3060",
-                "url": "https://www.drupal.org/node/1001",
-                "summary": "Fixes a crash during user login.",
-            }
-        ]
-        xml = issues_to_xls(items, page=1)
-        self.assertIn('<?xml version="1.0" encoding="UTF-8"?>', xml)
-        self.assertIn('ss:Name="Page 1"', xml)
-        self.assertIn("Fix login crash", xml)
-        self.assertIn("1001", xml)
-        self.assertIn("needs review", xml)
-        self.assertIn("critical", xml)
-
-    def test_empty_list_has_headers(self):
-        xml = issues_to_xls([], page=2)
-        self.assertIn('ss:Name="Page 2"', xml)
-        self.assertIn("Issue ID", xml)
-        self.assertIn("Title", xml)
 
 
 class ExportCsvTests(unittest.TestCase):
