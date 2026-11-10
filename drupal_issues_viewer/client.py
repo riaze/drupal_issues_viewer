@@ -55,10 +55,10 @@ class TTLCache:
 
     def __init__(self, ttl: int = CACHE_TTL) -> None:
         self.ttl = ttl
-        self._cache: dict[tuple[int, str | None, str | None], tuple[float, dict[str, Any]]] = {}
+        self._cache: dict[tuple[Any, ...], tuple[float, dict[str, Any]]] = {}
         self._lock = threading.Lock()
 
-    def get(self, key: tuple[int, str | None, str | None]) -> dict[str, Any] | None:
+    def get(self, key: tuple[Any, ...]) -> dict[str, Any] | None:
         with self._lock:
             entry = self._cache.get(key)
             if entry is None:
@@ -69,7 +69,7 @@ class TTLCache:
                 return None
             return data
 
-    def set(self, key: tuple[int, str | None, str | None], data: dict[str, Any]) -> None:
+    def set(self, key: tuple[Any, ...], data: dict[str, Any]) -> None:
         with self._lock:
             self._cache[key] = (time.time(), data)
 
@@ -119,11 +119,13 @@ def fetch_issues(
     page: int = 1,
     status: str | None = None,
     priority: str | None = None,
+    query: str | None = None,
     session: requests.Session | None = None,
     use_cache: bool = True,
 ) -> dict[str, Any]:
-    """GET Drupal issues for a single page with optional status and priority filters."""
-    cache_key = (page, status, priority)
+    """GET Drupal issues for a single page with optional status, priority, and keyword filters."""
+    normalized_q = query.strip() if query else None
+    cache_key = (page, status, priority, normalized_q)
     if use_cache:
         cached = _cache.get(cache_key)
         if cached is not None:
@@ -131,7 +133,7 @@ def fetch_issues(
             return cached
 
     http = session or _session
-    logger.info("Fetching Drupal issues page=%s status=%s priority=%s", page, status, priority)
+    logger.info("Fetching Drupal issues page=%s status=%s priority=%s query=%s", page, status, priority, normalized_q)
     drupal_page = max(page - 1, 0)
     params: dict[str, Any] = {"type": "project_issue", "page": drupal_page}
     if status:
@@ -148,12 +150,20 @@ def fetch_issues(
     payload = response.json()
 
     items = [normalize_issue(node) for node in payload.get("list") or []]
+    if normalized_q:
+        needle = normalized_q.lower()
+        items = [
+            it for it in items
+            if needle in str(it.get("title", "")).lower() or needle in str(it.get("summary", "")).lower()
+        ]
+
     result = {
         "page": page,
         "count": len(items),
         "has_next": bool(payload.get("next")),
         "status": status or "",
         "priority": priority or "",
+        "query": normalized_q or "",
         "items": items,
     }
     if use_cache:

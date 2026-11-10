@@ -55,6 +55,7 @@ def render_frontend(data: dict[str, Any], template_path=TEMPLATE_PATH) -> str:
     page = data["page"]
     status = data.get("status") or ""
     priority = data.get("priority") or ""
+    query = data.get("query") or ""
 
     def make_url(p: int) -> str:
         q: dict[str, Any] = {"page": p}
@@ -62,12 +63,15 @@ def render_frontend(data: dict[str, Any], template_path=TEMPLATE_PATH) -> str:
             q["status"] = status
         if priority:
             q["priority"] = priority
+        if query:
+            q["q"] = query
         return f"/?{urlencode(q)}"
 
-    api_query = urlencode({k: v for k, v in [("page", page), ("status", status), ("priority", priority)] if v})
+    api_query = urlencode({k: v for k, v in [("page", page), ("status", status), ("priority", priority), ("q", query)] if v})
 
     cards = []
     for item in data["items"]:
+        
         cards.append(
             _CARD.substitute(
                 title=html.escape(str(item["title"])),
@@ -86,6 +90,7 @@ def render_frontend(data: dict[str, Any], template_path=TEMPLATE_PATH) -> str:
         count=data["count"],
         status_options=_options(ISSUE_STATUS, status),
         priority_options=_options(ISSUE_PRIORITY, priority),
+        query=html.escape(query, quote=True),
         api_query=api_query,
         items_html="".join(cards) or "<p>No issues found.</p>",
         prev_link=_nav_link("Previous", make_url(page - 1) if page > 1 else None),

@@ -8,8 +8,11 @@ It calls the Drupal.org REST endpoint (`/api-d7/node.json`), normalizes each iss
 
 - HTML frontend at `/` with previous/next paging
 - JSON REST endpoint at `/api/issues`
+- Excel spreadsheet export at `/export/issues.xls`
+- CSV download at `/export/issues.csv`
 - Health check at `/health`
 - In-memory TTL caching (default: 60s, configurable via `DRUPAL_CACHE_TTL`)
+- Status and priority filtering and text search
 - Status and priority labels mapped from Drupal field IDs
 - Short HTML-stripped summaries for each issue
 
@@ -54,8 +57,10 @@ python -m unittest discover -s tests -v
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/` | HTML list of issues. Query: `?page=1&status=8&priority=400` |
-| `GET` | `/api/issues` | JSON list of issues. Query: `?page=1&status=8&priority=400` |
+| `GET` | `/` | HTML list of issues. Query: `?page=1&status=8&priority=400&q=keyword` |
+| `GET` | `/api/issues` | JSON list of issues. Query: `?page=1&status=8&priority=400&q=keyword` |
+| `GET` | `/export/issues.xls` | Download filtered issues as Excel (.xls). Query: `?page=1` |
+| `GET` | `/export/issues.csv` | Download filtered issues as CSV. Query: `?page=1&status=8&priority=400&q=keyword` |
 | `GET` | `/health` | Liveness probe |
 
 ### Filters
@@ -63,6 +68,7 @@ python -m unittest discover -s tests -v
 - `page`: Page number (starts at `1`)
 - `status`: Drupal issue status ID (e.g. `8` for *needs review*, `13` for *needs work*, `1` for *active*)
 - `priority`: Drupal issue priority ID (e.g. `400` for *critical*, `300` for *major*, `200` for *normal*)
+- `q`: Keyword search across issue title and summary text
 
 ### JSON example
 

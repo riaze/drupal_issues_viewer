@@ -250,6 +250,10 @@
     </header>
     <form class="filter-bar" method="GET" action="/">
       <div class="filter-group">
+        <label for="q">Search:</label>
+        <input type="search" name="q" id="q" value="$query" placeholder="Keyword..." style="padding: 0.35rem 0.6rem; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); font-size: 0.85rem; outline: none; width: 130px;">
+      </div>
+      <div class="filter-group">
         <label for="status">Status:</label>
         <select name="status" id="status">
           $status_options
@@ -264,12 +268,15 @@
       <input type="hidden" name="page" value="1">
       <button type="submit" class="btn-submit">Filter</button>
       <a href="/" class="btn" style="padding: 0.35rem 0.6rem; min-width: auto; font-size: 0.82rem;">Reset</a>
+      <a href="/export/issues.csv?$api_query" class="btn" style="padding: 0.35rem 0.75rem; min-width: auto; font-size: 0.82rem; margin-left: auto; background: #0678be; color: #fff; border-color: #0678be;" title="Download issues as CSV">📄 Download CSV</a>
     </form>
     <main>
       $items_html
     </main>
     <footer class="footer-bar">
-      <p class="api-link">JSON API · <a href="/api/issues?$api_query">/api/issues?$api_query</a></p>
+      <p class="api-link">
+        <a href="/api/issues?$api_query">JSON API</a>
+      </p>
       <nav class="pager" aria-label="Footer pagination">
         $prev_link
         <span class="page-indicator">Page $page</span>

@@ -9,6 +9,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from drupal_issues_viewer.client import fetch_issues
+from drupal_issues_viewer.export import issues_to_csv, issues_to_xls
 from drupal_issues_viewer.render import render_frontend
 
 logger = logging.getLogger(__name__)
@@ -35,28 +36,113 @@ class DrupalIssuesHandler(BaseHTTPRequestHandler):
         page = parse_page(qs)
         status = qs.get("status", [None])[0] or None
         priority = qs.get("priority", [None])[0] or None
+        query = qs.get("q", [None])[0] or None
 
         routes = {
             "/": self._handle_frontend,
             "/index.html": self._handle_frontend,
             "/api/issues": self._handle_issues_api,
+            "/export/issues.xls": self._handle_export_xls,
+            "/export/issues.csv": self._handle_export_csv,
             "/health": self._handle_health,
         }
         handler = routes.get(parsed.path)
         if handler is None:
             self._send_json(404, {"error": "Endpoint not found"})
             return
-        handler(page, status, priority)
+        handler(page, status, priority, query)
 
-    def _handle_health(self, _page: int, _status: str | None = None, _priority: str | None = None) -> None:
+    def _handle_export_xls(
+        self,
+        page: int,
+        status: str | None = None,
+        priority: str | None = None,
+        query: str | None = None,
+    ) -> None:
+        try:
+            data = fetch_issues(page, status=status, priority=priority, query=query)
+            body = issues_to_xls(data.get("items", []), page=page).encode("utf-8")
+        except Exception:
+            logger.exception("Failed to export XLS page=%s status=%s priority=%s query=%s", page, status, priority, query)
+            self._send_json(502, {"error": "Failed to export issues to XLS"})
+            return
+        filename = f"drupal_issues_page_{page}.xls"
+        self.send_response(200)
+        self.send_header("Content-Type", "application/vnd.ms-excel; charset=utf-8")
+        self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+        self.send_header("Content-Length", str(len(body)))
+        self._write_security_headers()
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _handle_export_csv(
+        self,
+        page: int,
+        status: str | None = None,
+        priority: str | None = None,
+        query: str | None = None,
+    ) -> None:
+        try:
+            data = fetch_issues(page, status=status, priority=priority, query=query)
+            # utf-8-sig adds a BOM so Excel detects the encoding correctly.
+            body = issues_to_csv(data.get("items", [])).encode("utf-8-sig")
+        except Exception:
+            logger.exception("Failed to export CSV page=%s status=%s priority=%s query=%s", page, status, priority, query)
+            self._send_json(502, {"error": "Failed to export issues to CSV"})
+            return
+        filename = f"drupal_issues_page_{page}.csv"
+        self.send_response(200)
+        self.send_header("Content-Type", "text/csv; charset=utf-8")
+        self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+        self.send_header("Content-Length", str(len(body)))
+        self._write_security_headers()
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _handle_export_xls(
+        self,
+        page: int,
+        status: str | None = None,
+        priority: str | None = None,
+        query: str | None = None,
+    ) -> None:
+        try:
+            data = fetch_issues(page, status=status, priority=priority, query=query)
+            body = issues_to_xls(data.get("items", []), page=page).encode("utf-8")
+        except Exception:
+            logger.exception("Failed to export XLS page=%s status=%s priority=%s query=%s", page, status, priority, query)
+            self._send_json(502, {"error": "Failed to export issues to XLS"})
+            return
+        filename = f"drupal_issues_page_{page}.xls"
+        self.send_response(200)
+        self.send_header("Content-Type", "application/vnd.ms-excel; charset=utf-8")
+        self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+        self.send_header("Content-Length", str(len(body)))
+        self._write_security_headers()
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _handle_health(
+        self,
+        _page: int,
+        _status: str | None = None,
+        _priority: str | None = None,
+        _query: str | None = None,
+    ) -> None:
         self._send_json(200, {"status": "ok"})
 
-    def _handle_frontend(self, page: int, status: str | None = None, priority: str | None = None) -> None:
+    def _handle_frontend(
+        self,
+        page: int,
+        status: str | None = None,
+        priority: str | None = None,
+        query: str | None = None,
+    ) -> None:
         try:
-            data = fetch_issues(page, status=status, priority=priority)
+            data = fetch_issues(page, status=status, priority=priority, query=query)
             body = render_frontend(data).encode("utf-8")
         except Exception:
-            logger.exception("Failed to render issues page=%s status=%s priority=%s", page, status, priority)
+            logger.exception("Failed to render issues page=%s status=%s priority=%s query=%s", page, status, priority, query)
             self._send_json(502, {"error": "Failed to load issues"})
             return
         self.send_response(200)
@@ -66,11 +152,17 @@ class DrupalIssuesHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def _handle_issues_api(self, page: int, status: str | None = None, priority: str | None = None) -> None:
+    def _handle_issues_api(
+        self,
+        page: int,
+        status: str | None = None,
+        priority: str | None = None,
+        query: str | None = None,
+    ) -> None:
         try:
-            self._send_json(200, fetch_issues(page, status=status, priority=priority))
+            self._send_json(200, fetch_issues(page, status=status, priority=priority, query=query))
         except Exception:
-            logger.exception("Failed to fetch issues page=%s status=%s priority=%s", page, status, priority)
+            logger.exception("Failed to fetch issues page=%s status=%s priority=%s query=%s", page, status, priority, query)
             self._send_json(502, {"error": "Failed to load issues"})
 
     def _send_json(self, status_code: int, data: dict[str, Any]) -> None:
